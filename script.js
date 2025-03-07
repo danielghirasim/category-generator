@@ -47,12 +47,14 @@ function isSlugUnique(slug, excludeId = null) {
 // Create a new category
 function createCategory(name, parentSlug = null) {
   let level = 1; // Root level is now 1 instead of 0
+  let parentId = null;
 
   // Find parent and determine level
   if (parentSlug !== null) {
     const parent = categories.find((cat) => cat.slug === parentSlug);
     if (parent) {
       level = parent.level + 1;
+      parentId = parent.id; // Set the parent_id based on parent's id
     } else {
       console.error(`Parent with slug "${parentSlug}" not found`);
       return null;
@@ -99,6 +101,7 @@ function createCategory(name, parentSlug = null) {
     slug: slug,
     level: level,
     parent_slug: parentSlug,
+    parent_id: parentId, // Added parent_id property
     display_order: maxDisplayOrder + 1, // Set display order to be after existing categories
     image_url: '',
     description: '',
@@ -123,6 +126,12 @@ function getCategoryBySlug(slug) {
 function getCategoryChildren(parentSlug) {
   // Get children and sort by display_order
   return categories.filter((cat) => cat.parent_slug === parentSlug).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+}
+
+// Get children of a category by parent ID
+function getCategoryChildrenById(parentId) {
+  // Get children and sort by display_order
+  return categories.filter((cat) => cat.parent_id === parentId).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
 }
 
 // Get breadcrumb path for a category
@@ -291,6 +300,7 @@ function deleteCategory(categoryId) {
   if (!categoryToDelete) return;
 
   const slugToDelete = categoryToDelete.slug;
+  const idToDelete = categoryToDelete.id;
 
   // Get all descendant ids recursively
   function getAllDescendantSlugs(slug) {
@@ -305,11 +315,28 @@ function deleteCategory(categoryId) {
     return descendantSlugs;
   }
 
+  // Get all descendant ids recursively using parent_id
+  function getAllDescendantIds(id) {
+    const directChildren = categories.filter((cat) => cat.parent_id === id);
+    const childrenIds = directChildren.map((child) => child.id);
+    const descendantIds = [...childrenIds];
+
+    childrenIds.forEach((childId) => {
+      descendantIds.push(...getAllDescendantIds(childId));
+    });
+
+    return descendantIds;
+  }
+
+  // Get descendant slugs and ids
   const allSlugs = [slugToDelete, ...getAllDescendantSlugs(slugToDelete)];
-  const allIds = categories.filter((cat) => allSlugs.includes(cat.slug)).map((cat) => cat.id);
+  const allIds = [idToDelete, ...getAllDescendantIds(idToDelete)];
+
+  // Combine both methods to ensure we catch all descendants
+  const allCategoriesToDelete = categories.filter((cat) => allSlugs.includes(cat.slug) || allIds.includes(cat.id)).map((cat) => cat.id);
 
   // Remove all categories
-  categories = categories.filter((cat) => !allIds.includes(cat.id));
+  categories = categories.filter((cat) => !allCategoriesToDelete.includes(cat.id));
 
   // Deselect
   selectCategory(null);
@@ -362,10 +389,11 @@ function validateDisplayOrder() {
 }
 
 // Update children references when parent slug changes
-function updateChildrenReferences(oldSlug, newSlug) {
+function updateChildrenReferences(oldSlug, newSlug, categoryId) {
   categories.forEach((category) => {
     if (category.parent_slug === oldSlug) {
       category.parent_slug = newSlug;
+      category.parent_id = categoryId;
     }
   });
 }
@@ -468,7 +496,7 @@ saveCategoryBtn.addEventListener('click', () => {
 
   // Update children references if slug changed
   if (oldSlug !== newSlug) {
-    updateChildrenReferences(oldSlug, newSlug);
+    updateChildrenReferences(oldSlug, newSlug, category.id);
   }
 
   renderCategoriesTree();
@@ -569,20 +597,31 @@ fileInput.addEventListener('change', (event) => {
           throw new Error('Invalid category data: missing required fields');
         }
 
-        // Convert old format (parent_id) to new format (parent_slug)
-        if (cat.parent_id && !cat.parent_slug) {
-          // Find parent by ID in the loaded categories
+        // Set proper parent relationships
+        // If parent_slug exists but parent_id doesn't
+        if (cat.parent_slug && !cat.parent_id) {
+          const parent = loadedCategories.find((p) => p.slug === cat.parent_slug);
+          if (parent) {
+            cat.parent_id = parent.id;
+          }
+        }
+        // If parent_id exists but parent_slug doesn't
+        else if (cat.parent_id && !cat.parent_slug) {
           const parent = loadedCategories.find((p) => p.id === cat.parent_id);
           if (parent) {
             cat.parent_slug = parent.slug;
           } else {
             cat.parent_slug = null;
+            cat.parent_id = null;
           }
         }
 
-        // Ensure parent_slug exists (might be null)
+        // Ensure parent_slug and parent_id exist (might be null)
         if (cat.parent_slug === undefined) {
           cat.parent_slug = null;
+        }
+        if (cat.parent_id === undefined) {
+          cat.parent_id = null;
         }
 
         // Handle level adjustment from old level system (0-based) to new level system (1-based)
