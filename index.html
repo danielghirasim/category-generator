@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Category Management Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/uuid/8.3.2/uuid.min.js"></script>
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+  </head>
+  <body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+      <h1 class="text-3xl font-bold mb-8 text-center text-blue-600">Category Management Tool</h1>
+
+      <!-- Main Controls -->
+      <div class="flex justify-between mb-8">
+        <div class="flex space-x-4">
+          <button id="newCategoryBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded shadow">Add Root Category</button>
+          <input type="file" id="fileInput" class="hidden" accept=".json" />
+          <button id="loadBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow">Load JSON</button>
+          <button id="saveBtn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded shadow">Save JSON</button>
+        </div>
+        <div class="flex space-x-4">
+          <button id="saveToLocalBtn" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded shadow">Save to Local</button>
+          <button id="loadFromLocalBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded shadow">Load from Local</button>
+          <button id="resetLocalBtn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded shadow">Reset Local</button>
+        </div>
+      </div>
+
+      <!-- Statistics Section -->
+      <div class="mb-8">
+        <h2 class="text-lg font-semibold mb-2">Category Statistics:</h2>
+        <div id="statsContainer" class="grid grid-cols-4 gap-4">
+          <!-- Stats will be populated dynamically -->
+          <div class="stat bg-white rounded-md p-4 shadow text-center">
+            <div class="stat-title text-sm text-gray-600 mb-1">Total Categories</div>
+            <div class="stat-value text-2xl font-semibold text-purple-600">0</div>
+          </div>
+          <div class="stat bg-white rounded-md p-4 shadow text-center">
+            <div class="stat-title text-sm text-gray-600 mb-1">Level 1</div>
+            <div class="stat-value text-2xl font-semibold text-green-600">0</div>
+          </div>
+          <div class="stat bg-white rounded-md p-4 shadow text-center">
+            <div class="stat-title text-sm text-gray-600 mb-1">Level 2</div>
+            <div class="stat-value text-2xl font-semibold text-sky-600">0</div>
+          </div>
+          <div class="stat bg-white rounded-md p-4 shadow text-center">
+            <div class="stat-title text-sm text-gray-600 mb-1">Level 3</div>
+            <div class="stat-value text-2xl font-semibold text-orange-600">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Breadcrumbs Preview -->
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold mb-2">Breadcrumbs Preview:</h2>
+        <div id="breadcrumbsPreview" class="bg-white p-4 rounded shadow text-sm text-gray-600">No category selected</div>
+      </div>
+
+      <!-- Categories and Editor Section -->
+      <div class="flex gap-6">
+        <!-- Categories Tree -->
+        <div class="w-1/2 bg-white p-6 rounded shadow">
+          <h2 class="text-xl font-semibold mb-4">Categories</h2>
+          <div id="categoriesTree" class="border-l border-gray-200 pl-3 pr-4 category-tree max-h-[900px] overflow-y-auto">
+            <!-- Categories will be loaded here -->
+          </div>
+        </div>
+
+        <!-- Category Editor -->
+        <div id="categoryEditor" class="w-1/2 bg-white p-6 max-h-fit rounded shadow hidden">
+          <h2 class="text-xl font-semibold mb-4">Edit Category</h2>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <input
+                id="nameInput"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Category name"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Slug
+                <span class="text-xs text-gray-500">(auto-generated)</span>
+              </label>
+              <div class="flex items-center">
+                <input
+                  id="slugInput"
+                  type="text"
+                  class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="category-slug"
+                />
+              </div>
+              <div class="mt-1 text-xs text-gray-500">Preview: <span id="slugPreview" class="font-mono"></span></div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Display Order</label>
+              <input
+                id="displayOrderInput"
+                type="number"
+                min="0"
+                class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="0"
+              />
+              <div class="mt-1 text-xs text-gray-500">Lower numbers display first</div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
+              <textarea
+                id="descriptionInput"
+                class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Category description"
+              ></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Image URL (optional)</label>
+              <input
+                id="imageUrlInput"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="https://example.com/image.jpg"
+              />
+            </div>
+            <div class="flex items-center">
+              <span class="block text-sm font-medium text-gray-700 mr-4">Level: </span>
+              <span id="levelDisplay" class="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">1</span>
+            </div>
+            <div class="flex space-x-4 pt-4">
+              <button id="saveCategory" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow">Save Changes</button>
+              <button id="deleteCategory" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded shadow">Delete</button>
+              <button id="addChildCategory" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded shadow">Add Child</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="w-1/2 bg-white p-6 rounded shadow max-h-fit flex flex-col items-center justify-center text-center">
+          <svg class="w-16 h-16 text-gray-400 mb-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" />
+            <path
+              d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V8z"
+            />
+          </svg>
+          <h3 class="text-lg font-medium text-gray-900">No Category Selected</h3>
+          <p class="mt-1 text-sm text-gray-500">Select a category from the tree to edit or use "Add Root Category" to create a new one.</p>
+        </div>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
